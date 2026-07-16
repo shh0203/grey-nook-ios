@@ -47,20 +47,22 @@ jobs:
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          echo "Creating keychain at $KEYCHAIN_PATH"
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain-db $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain-db
           security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -s $KEYCHAIN_PATH
+          echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
+          echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
 
       - name: Store Apple ID credentials in keychain
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          xcrun altool --store-password-in-keychain-item "AC_PASSWORD" \
-            -s "$APPLE_ID" -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD"
-          security find-internet-password -s "appleid.apple.com" -a "$APPLE_ID" 2>&1 | head -3
+          security find-generic-password -s "$APPLE_ID" -a "$APPLE_ID" 2>/dev/null && security delete-generic-password -s "$APPLE_ID" -a "$APPLE_ID" || true
+          security add-generic-password -s "$APPLE_ID" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD"
 
       - name: Build iOS with automatic signing
         env:
@@ -68,7 +70,6 @@ jobs:
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
           cd ios
-          # Add the iPhone UDID to the team (auto-provisioned)
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -78,18 +79,13 @@ jobs:
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -allowProvisioningUpdates \
             CODE_SIGN_STYLE=Automatic \
-            DEVELOPMENT_TEAM= \
             CODE_SIGN_IDENTITY="Apple Development" \
             archive
           cd ..
 
       - name: Export IPA
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          # Create ExportOptions.plist
-          cat > /tmp/ExportOptions.plist << EOF
+          cat > /tmp/ExportOptions.plist << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
@@ -98,18 +94,14 @@ jobs:
               <string>development</string>
               <key>signingStyle</key>
               <string>automatic</string>
-              <key>teamID</key>
-              <string></string>
           </dict>
           </plist>
           EOF
-
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -exportPath $RUNNER_TEMP/IPA \
             -exportOptionsPlist /tmp/ExportOptions.plist \
             -allowProvisioningUpdates
-
           ls -la $RUNNER_TEMP/IPA/
 
       - name: Copy IPA to workspace
