@@ -26,7 +26,7 @@ jobs:
         run: |
           sudo gem install cocoapods --no-document
 
-      - name: Create symlink for Flutter (workaround for Homebrew Flutter path)
+      - name: Create Flutter symlink (Homebrew workaround)
         run: |
           if [ ! -d /opt/flutter ]; then
             sudo mkdir -p /opt
@@ -43,24 +43,32 @@ jobs:
           pod install
           cd ..
 
-      - name: Setup keychain for code signing
+      - name: Create temporary keychain
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
           KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychains -d user -s $KEYCHAIN_PATH
-          security set-key-partition-list -S apple-tool:,apple: -s $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain-db $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -s $KEYCHAIN_PATH
 
-      - name: Build iOS (no signing first, then we'll handle separately)
+      - name: Store Apple ID credentials in keychain
         env:
-          APPLE_ID: 13057691109@163.com
-          APPLE_PASSWORD: Tsh91109!
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          mkdir -p build
+          xcrun altool --store-password-in-keychain-item "AC_PASSWORD" \
+            -s "$APPLE_ID" -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD"
+          security find-internet-password -s "appleid.apple.com" -a "$APPLE_ID" 2>&1 | head -3
+
+      - name: Build iOS with automatic signing
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
           cd ios
+          # Add the iPhone UDID to the team (auto-provisioned)
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -68,23 +76,51 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -allowProvisioningUpdates \
+            CODE_SIGN_STYLE=Automatic \
+            DEVELOPMENT_TEAM= \
             CODE_SIGN_IDENTITY="Apple Development" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
             archive
           cd ..
 
-      - name: Create unsigned IPA (for manual distribution)
+      - name: Export IPA
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          cd $RUNNER_TEMP/Runner.xcarchive
-          mkdir -p Payload
-          cp -R Products/Applications/Runner.app Payload/
-          zip -r $RUNNER_TEMP/Runner-unsigned.ipa Payload
-          ls -la $RUNNER_TEMP/Runner-unsigned.ipa
+          # Create ExportOptions.plist
+          cat > /tmp/ExportOptions.plist << EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>automatic</string>
+              <key>teamID</key>
+              <string></string>
+          </dict>
+          </plist>
+          EOF
 
-      - name: Upload unsigned IPA as artifact
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -exportPath $RUNNER_TEMP/IPA \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -allowProvisioningUpdates
+
+          ls -la $RUNNER_TEMP/IPA/
+
+      - name: Copy IPA to workspace
+        run: |
+          mkdir -p build
+          find $RUNNER_TEMP/IPA -name "*.ipa" -exec cp {} build/Runner.ipa \;
+          ls -la build/Runner.ipa
+
+      - name: Upload IPA as artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Runner-unsigned
-          path: ${{ runner.temp }}/Runner-unsigned.ipa
+          name: GreyNook-iOS
+          path: build/Runner.ipa
           if-no-files-found: error
