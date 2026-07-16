@@ -46,15 +46,18 @@ jobs:
       - name: Create temporary keychain
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
-          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
-          echo "Creating keychain at $KEYCHAIN_PATH"
+          KEYCHAIN_PASSWORD="build123"
+          security delete-keychain $KEYCHAIN_PATH 2>/dev/null || true
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security list-keychains -d user -s $KEYCHAIN_PATH login.keychain-db
-          security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -s $KEYCHAIN_PATH
+          EXISTING=$(security list-keychains -d user | tr -d '"' | head -1)
+          security list-keychains -d user -s $KEYCHAIN_PATH $EXISTING
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           echo "KEYCHAIN_PASSWORD=$KEYCHAIN_PASSWORD" >> $GITHUB_ENV
           echo "KEYCHAIN_PATH=$KEYCHAIN_PATH" >> $GITHUB_ENV
+          echo "OK: keychain created and unlocked"
+          security list-keychains
 
       - name: Store Apple ID credentials in keychain
         env:
