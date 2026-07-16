@@ -1,0 +1,24 @@
+name: Get Apple Team ID
+
+on: workflow_dispatch
+
+jobs:
+  query:
+    runs-on: macos-15
+    steps:
+      - name: Query Apple for team info
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          echo "=== Querying Apple for your team info ==="
+          echo ""
+          echo "App-Specific Password starts with: ${APPLE_APP_PASSWORD:0:4}****"
+          echo "Apple ID: $APPLE_ID"
+          echo ""
+          echo "--- altool --list-providers ---"
+          xcrun altool --list-providers -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | tee /tmp/team.txt
+          echo ""
+          echo "--- end of output ---"
+          echo ""
+          echo "If you see a Provider ID (10 chars like ABCDE12345), that's your Team ID."
