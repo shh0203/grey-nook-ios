@@ -1,0 +1,90 @@
+name: Build iOS
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '15.4'
+
+      - name: Install CocoaPods
+        run: |
+          sudo gem install cocoapods --no-document
+
+      - name: Create symlink for Flutter (workaround for Homebrew Flutter path)
+        run: |
+          if [ ! -d /opt/flutter ]; then
+            sudo mkdir -p /opt
+            sudo ln -sfn $(dirname $(dirname $(readlink -f $(which flutter)))) /opt/flutter
+          fi
+          ls -la /opt/flutter/packages/flutter_tools/bin/podhelper.rb
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Pod install
+        run: |
+          cd ios
+          pod install
+          cd ..
+
+      - name: Setup keychain for code signing
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+          KEYCHAIN_PASSWORD=$(openssl rand -hex 24)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security list-keychains -d user -s $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple: -s $KEYCHAIN_PATH
+
+      - name: Build iOS (no signing first, then we'll handle separately)
+        env:
+          APPLE_ID: 13057691109@163.com
+          APPLE_PASSWORD: Tsh91109!
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID || '' }}
+        run: |
+          mkdir -p build
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            archive
+          cd ..
+
+      - name: Create unsigned IPA (for manual distribution)
+        run: |
+          cd $RUNNER_TEMP/Runner.xcarchive
+          mkdir -p Payload
+          cp -R Products/Applications/Runner.app Payload/
+          zip -r $RUNNER_TEMP/Runner-unsigned.ipa Payload
+          ls -la $RUNNER_TEMP/Runner-unsigned.ipa
+
+      - name: Upload unsigned IPA as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Runner-unsigned
+          path: ${{ runner.temp }}/Runner-unsigned.ipa
+          if-no-files-found: error
