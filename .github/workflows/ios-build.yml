@@ -4,6 +4,10 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
+    inputs:
+      dummy:
+        description: 'Trigger build'
+        required: false
 
 jobs:
   build:
