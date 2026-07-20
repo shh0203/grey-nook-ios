@@ -22,82 +22,56 @@ jobs:
         with:
           xcode-version: '16'
 
-      - name: Install CocoaPods
+      - name: Install fastlane and CocoaPods
         run: |
-          sudo gem install cocoapods --no-document
+          # Install fastlane
+          sudo gem install fastlane --no-document
 
-      - name: Create Flutter symlink
-        run: |
-          if [ ! -d /opt/flutter ]; then
-            sudo mkdir -p /opt/flutter
-            FLUTTER_PATH=$(which flutter)
-            FLUTTER_DIR=$(dirname $(readlink -f "$FLUTTER_PATH"))
-            sudo ln -sfn "$FLUTTER_DIR" /opt/flutter
-          fi
-          echo "Flutter symlink ready"
-
-      - name: Flutter pub get
-        run: flutter pub get
-
-      - name: Pod install
-        run: |
+          # Install CocoaPods dependencies
           cd ios
-          pod install
+          pod install --repo-update
           cd ..
 
-      - name: Create temporary keychain
-        run: |
-          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
-          KEYCHAIN_PASSWORD="build123"
-          set +e
-          security delete-keychain $KEYCHAIN_PATH 2>/dev/null
-          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
-          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          EXISTING=$(security list-keychains -d user | tr -d '"' | head -1)
-          security list-keychains -d user -s $KEYCHAIN_PATH $EXISTING
-          security set-key-partition-list -S apple-tool:,apple:codesign:,productbuild: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
-          set -e
-          echo "OK: keychain created and unlocked"
-
-      - name: Authenticate Apple Developer Account
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-        run: |
-          # Accept Xcode license
-          xcodebuild -license accept 2>/dev/null || true
-
-          # Use xcrun devtool to authenticate (modern replacement for deprecated altool)
-          # devtool is available on macOS 14+ runners and handles Apple ID auth properly
-          echo "=== Authenticating with Apple Developer account ==="
-          xcrun devtool auth \
-            --username "$APPLE_ID" \
-            --password "$APPLE_APP_PASSWORD" \
-            --output-format json 2>&1 || echo "devtool auth attempted"
-
-          # Fallback: also try adding via Xcode preference panes if devtool failed
-          echo "=== Listing Xcode accounts ==="
-          xcodebuild -showsdks 2>&1 | head -5
-          xcodebuild -allTargets -list 2>&1 || echo "Project listed"
-
-          # Show available signing identities
-          echo "=== Signing identities in keychain ==="
-          xcrun security find-identity -v -p codesigning 2>&1 || echo "No identities found"
-
-          echo ""
-          echo "=== Attempting to add Apple ID to Xcode ==="
-          # Try using the newer approach with Xcode-select
-          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
-
-      - name: Build iOS with explicit Team ID
+      - name: Fetch provisioning profile via fastlane sigh
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
           TEAM_ID: "8SA58JW8NP"
+          BUNDLE_ID: "app.greyNook.bb2026"
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+
+          # Run fastlane sigh to download/create provisioning profile
+          # sigh logs into App Store Connect with Apple ID credentials and fetches the profile
+          cd ios
+          fastlane sigh \
+            username:"$APPLE_ID" \
+            password:"$APPLE_APP_PASSWORD" \
+            team_id:"$TEAM_ID" \
+            app_identifier:"$BUNDLE_ID" \
+            output_path:"$RUNNER_TEMP/provisioning_profiles" \
+            skip_install:false \
+            readonly:false 2>&1 | tee $RUNNER_TEMP/sigh_output.txt
+
+          # Copy downloaded profile to Xcode's profile directory
+          PROFILE=$(find $RUNNER_TEMP/provisioning_profiles -name "*.mobileprovision" 2>/dev/null | head -1)
+          if [ -n "$PROFILE" ] && [ -f "$PROFILE" ]; then
+            UUID=$(grep -A1 "UUID" "$PROFILE" | grep -o '[A-F0-9-]\{36\}' | head -1)
+            cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
+            echo "SUCCESS: Profile installed as ${UUID}.mobileprovision"
+            ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+          else
+            echo "WARNING: sigh did not produce a .mobileprovision file"
+            echo "sigh output:"
+            tail -20 $RUNNER_TEMP/sigh_output.txt
+          fi
+          cd ..
+
+      - name: Build iOS
+        env:
+          TEAM_ID: "8SA58JW8NP"
         run: |
           cd ios
-          # First, try to download provisioning profile automatically
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -105,80 +79,58 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
-            -allowProvisioningUpdates \
-            -allowProvisioningProfileCreation \
             CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY="Apple Development" \
             DEVELOPMENT_TEAM=$TEAM_ID \
-            archive 2>&1 | tee $RUNNER_TEMP/build.log
-          
-          # Check if build succeeded
-          if [ -f "$RUNNER_TEMP/Runner.xcarchive" ]; then
-            echo "ARCHIVE SUCCEEDED"
+            -allowProvisioningUpdates \
+            archive 2>&1 | tee $RUNNER_TEMP/build_output.txt
+
+          if [ ${PIPESTATUS[0]} -eq 0 ]; then
+            echo "BUILD SUCCESS"
           else
-            echo "ARCHIVE FAILED - checking for account issue"
-            grep -i "No Accounts\|no account\|credential" $RUNNER_TEMP/build.log || true
-            exit 1
+            echo "BUILD FAILED - errors:"
+            grep -E "error:" $RUNNER_TEMP/build_output.txt | grep -v "warning:" | head -15
           fi
           cd ..
 
       - name: Export IPA
         run: |
-          cat > /tmp/ExportOptions.plist << 'EOF'
+          mkdir -p $RUNNER_TEMP/IPA
+
+          cat > /tmp/ExportOptions.plist << 'PLIST'
           <?xml version="1.0" encoding="UTF-8"?>
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-            <key>method</key>
-            <string>development</string>
-            <key>signingStyle</key>
-            <string>automatic</string>
-            <key>teamID</key>
-            <string>8SA58JW8NP</string>
+            <key>method</key><string>development</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>teamID</key><string>8SA58JW8NP</string>
           </dict>
           </plist>
-          EOF
+          PLIST
+
           xcodebuild -exportArchive \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -exportPath $RUNNER_TEMP/IPA \
             -exportOptionsPlist /tmp/ExportOptions.plist \
-            -allowProvisioningUpdates 2>&1 || {
-            echo "Export failed, trying with explicit profile..."
-            cat > /tmp/ExportOptions2.plist << 'EOF2'
-            <?xml version="1.0" encoding="UTF-8"?>
-            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-            <plist version="1.0">
-            <dict>
-              <key>method</key>
-              <string>development</string>
-              <key>signingStyle</key>
-              <string>manual</string>
-              <key>teamID</key>
-              <string>8SA58JW8NP</string>
-              <key>codeSignIdentity</key>
-              <string>Apple Development</string>
-            </dict>
-            </plist>
-            EOF2
-            xcodebuild -exportArchive \
-              -archivePath $RUNNER_TEMP/Runner.xcarchive \
-              -exportPath $RUNNER_TEMP/IPA \
-              -exportOptionsPlist /tmp/ExportOptions2.plist
-          }
-          ls -la $RUNNER_TEMP/IPA/ 2>&1 || echo "IPA directory not found"
+            -allowProvisioningUpdates
 
-      - name: Copy IPA to workspace
-        run: |
-          mkdir -p build
-          find $RUNNER_TEMP/IPA -name "*.ipa" -exec cp {} build/Runner.ipa \; 2>/dev/null || {
-            echo "No IPA found, checking archive..."
-            ls -la $RUNNER_TEMP/Runner.xcarchive 2>&1 || true
-            exit 1
-          }
-          ls -la build/Runner.ipa
+          ls -la $RUNNER_TEMP/IPA/
 
       - name: Upload IPA as artifact
-        uses: actions/upload-artifact@v4
+        run: |
+          mkdir -p build
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
+          if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
+            cp "$IPA_FILE" build/Runner.ipa
+            echo "IPA ready: build/Runner.ipa"
+          else
+            echo "ERROR: No IPA found"
+            ls -la $RUNNER_TEMP/IPA/
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
         with:
           name: GreyNook-iOS
           path: build/Runner.ipa
