@@ -22,15 +22,15 @@ jobs:
         with:
           xcode-version: '16'
 
-      - name: Install CocoaPods
+      - name: Install Cocoapods
         run: |
           sudo gem install cocoapods --no-document
 
       - name: Create Flutter symlink
         run: |
           if [ ! -d /opt/flutter ]; then
-            sudo mkdir -p /opt
-            sudo ln -sfn $(dirname $(dirname $(readlink -f $(which flutter)))) /opt/flutter
+            sudo mkdir -p /opt/flutter
+            sudo ln -sfn $(dirname $(readlink -f $(which flutter)))) /opt/flutter
           fi
           ls -la /opt/flutter/packages/flutter_tools/bin/podhelper.rb
 
@@ -54,7 +54,7 @@ jobs:
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           EXISTING=$(security list-keychains -d user | tr -d '"' | head -1)
           security list-keychains -d user -s $KEYCHAIN_PATH $EXISTING
-          security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-key-partition-list -S apple-tool:,apple:codesign:,productbuild: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           set -e
           echo "OK: keychain created and unlocked"
 
@@ -66,15 +66,30 @@ jobs:
           set +e
           # Method 1: altool store-keychain (deprecated but works on older Xcode)
           xcrun altool --store-keychain -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -5
-          # Method 2: add as Xcode developer account
+          # Method 2: add as Xcode developer account via security
           security delete-generic-password -s "Xcode-Developer-Tools" -a "$APPLE_ID" 2>/dev/null
           security add-generic-password -s "Xcode-Developer-Tools" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD" 2>&1
           # Method 3: legacy altool add
           xcrun altool --add-account -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -5
           set -e
-          # List accounts we have
-          xcrun altool --list-providers -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -10
-          echo "OK: Apple ID credentials configured"
+          echo "OK: Apple ID credentials stored in keychain"
+
+      - name: Authenticate Apple ID and list teams
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: |
+          # Register the Apple Developer account with Xcode using altool authentication
+          xcrun altool --store-keychain-passwords -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" --use-appmgr-password --verify --verbose 2>&1 || true
+
+          # Accept Xcode license
+          xcodebuild -license accept 2>/dev/null || true
+
+          # Show available signing identities
+          xcrun security find-identity -v -p codesigning 2>&1 || echo "No identities found in keychain"
+
+          echo "=== Available teams ==="
+          xcrun altool --list-providers -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 || echo "No providers listed"
 
       - name: Build iOS with explicit Team ID
         env:
@@ -104,12 +119,12 @@ jobs:
           <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
           <plist version="1.0">
           <dict>
-              <key>method</key>
-              <string>development</string>
-              <key>signingStyle</key>
-              <string>automatic</string>
-              <key>teamID</key>
-              <string>8SA58JW8NP</string>
+            <key>method</key>
+            <string>development</string>
+            <key>signingStyle</key>
+            <string>automatic</string>
+            <key>teamID</key>
+            <string>8SA58JW8NP</string>
           </dict>
           </plist>
           EOF
