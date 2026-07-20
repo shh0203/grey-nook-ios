@@ -1,0 +1,127 @@
+name: Build iOS
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          cd ios && pod install --repo-update
+
+      - name: Install fastlane
+        run: sudo gem install fastlane --no-document
+
+      - name: Download provisioning profile via fastlane sigh
+        env:
+          FASTLANE_USER: ${{ secrets.APPLE_ID }}
+          FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          TEAM_ID: "8SA58JW8NP"
+          BUNDLE_ID: "app.greyNook.bb2026"
+        run: |
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cd ios
+          fastlane sigh team_id:$TEAM_ID app_identifier:$BUNDLE_ID output_path:$RUNNER_TEMP/provisioning_profiles skip_install:false readonly:false 2>&1 | tee $RUNNER_TEMP/sigh_output.txt
+          PROFILE=$(find $RUNNER_TEMP/provisioning_profiles -name "*.mobileprovision" 2>/dev/null | head -1)
+          if [ -n "$PROFILE" ] && [ -f "$PROFILE" ]; then
+            UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1)
+            cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
+            echo "SUCCESS: Profile installed: ${UUID}.mobileprovision"
+          else
+            echo "WARNING: No .mobileprovision file found"
+            tail -30 $RUNNER_TEMP/sigh_output.txt
+          fi
+          ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
+
+      - name: Build iOS
+        env:
+          TEAM_ID: "8SA58JW8NP"
+        run: |
+          cd ios
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            CODE_SIGN_STYLE=Manual \
+            CODE_SIGN_IDENTITY="Apple Development" \
+            DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGNING_REQUIRED=NO \
+            archive 2>&1 | tee $RUNNER_TEMP/build_output.txt
+          BUILD_CODE=${PIPESTATUS[0]}
+          if [ $BUILD_CODE -eq 0 ]; then
+            echo "BUILD SUCCEEDED"
+          else
+            echo "BUILD FAILED (exit $BUILD_CODE)"
+            grep -E "error:" $RUNNER_TEMP/build_output.txt | grep -v "warning:" | head -20
+            exit $BUILD_CODE
+          fi
+          ls -la $RUNNER_TEMP/Runner.xcarchive
+
+      - name: Export IPA
+        env:
+          TEAM_ID: "8SA58JW8NP"
+        run: |
+          mkdir -p $RUNNER_TEMP/IPA
+          cat > /tmp/ExportOptions.plist << 'PLISTEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key><string>development</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>teamID</key><string>8SA58JW8NP</string>
+  <key>signingCertificate</key><string>Apple Development</string>
+</dict>
+</plist>
+PLISTEOF
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -exportPath $RUNNER_TEMP/IPA \
+            -exportOptionsPlist /tmp/ExportOptions.plist \
+            -allowProvisioningUpdates 2>&1 | tee $RUNNER_TEMP/export_output.txt
+          ls -la $RUNNER_TEMP/IPA/
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
+          if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
+            echo "IPA created: $IPA_FILE"
+          else
+            echo "ERROR: No IPA found"
+            tail -10 $RUNNER_TEMP/export_output.txt
+            exit 1
+          fi
+
+      - name: Upload IPA
+        run: |
+          mkdir -p build
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
+          if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
+            cp "$IPA_FILE" build/Runner.ipa
+          else
+            echo "ERROR: IPA not found"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GreyNook-iOS
+          path: build/Runner.ipa
+          if-no-files-found: error
