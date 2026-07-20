@@ -50,7 +50,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('加一张', style: AppTypography.h2),
+            Text('加一张', style: AppTypography.headlineMedium),
             const SizedBox(height: 12),
             TextField(controller: url, decoration: const InputDecoration(labelText: '图片 URL', border: OutlineInputBorder(), filled: true, fillColor: Colors.white)),
             const SizedBox(height: 8),
@@ -64,7 +64,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
                 if (ctx.mounted) Navigator.pop(ctx);
                 setState(() => _future = _svc.list());
               },
-              child: Text('加进去', style: AppTypography.h3.copyWith(color: Colors.white)),
+              child: Text('加进去', style: AppTypography.labelLarge.copyWith(color: Colors.white)),
             ),
           ],
         ),
@@ -80,9 +80,9 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('相册', style: TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
-        actions: [IconButton(icon: const Icon(Icons.add, color: AppColors.brownDeep), onPressed: _add)],
+        title: const Text('相册', style: TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
+        actions: [IconButton(icon: const Icon(Icons.add, color: AppColors.butterDeep), onPressed: _add)],
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _future,
@@ -104,7 +104,7 @@ class _AlbumPageState extends ConsumerState<AlbumPage> {
               final p = list[i];
               final mine = p['uploader_id'] == me?.id;
               return ClipRRect(
-                borderRadius: AppRadii.medium,
+                borderRadius: AppRadii.md,
                 child: Stack(
                   fit: StackFit.expand,
                   children: [

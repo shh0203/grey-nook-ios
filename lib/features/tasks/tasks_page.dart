@@ -47,8 +47,8 @@ class _TasksPageState extends ConsumerState<TasksPage> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('一起做的事', style: TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
+        title: const Text('一起做的事', style: TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
       ),
       body: Column(
         children: [
@@ -63,7 +63,7 @@ class _TasksPageState extends ConsumerState<TasksPage> {
                       hintText: '想做点什么？比如"周末去爬山"',
                       filled: true,
                       fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: AppRadii.large, borderSide: BorderSide.none),
+                      border: OutlineInputBorder(borderRadius: AppRadii.lg, borderSide: BorderSide.none),
                     ),
                     onSubmitted: (_) => _add(),
                   ),

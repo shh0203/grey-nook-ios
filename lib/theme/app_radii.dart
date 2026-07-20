@@ -26,6 +26,11 @@ class AppRadii {
   /// Asymmetric (top corners larger) gives the familiar messenger feel.
   static const double bubbleSelf = 20;
   static const double bubbleOther = 20;
+
+  // ---- Backward-compat aliases ----------------------------------------
+  static const double small = sm;
+  static const double medium = md;
+  static const double large = lg;
 }
 
 /// Spacing scale. Use these names rather than raw numbers in widgets so

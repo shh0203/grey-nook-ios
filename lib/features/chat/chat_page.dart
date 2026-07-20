@@ -110,10 +110,10 @@ class _ChatPageState extends ConsumerState<ChatPage> {
           children: [
             const CircleAvatar(radius: 16, backgroundColor: AppColors.butter, child: Text('🐱', style: TextStyle(fontSize: 18))),
             const SizedBox(width: 8),
-            Text(partnerName, style: const TextStyle(color: AppColors.brownDeep)),
+            Text(partnerName, style: const TextStyle(color: AppColors.butterDeep)),
           ],
         ),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
       ),
       body: Column(
         children: [
@@ -157,7 +157,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                                   ),
                                   child: Text(
                                     m.ciphertext, // TODO: decrypt for display in v1
-                                    style: TextStyle(color: mine ? Colors.white : AppColors.brownDeep),
+                                    style: TextStyle(color: mine ? Colors.white : AppColors.butterDeep),
                                   ),
                                 ),
                               ),
@@ -184,7 +184,7 @@ class _ChatPageState extends ConsumerState<ChatPage> {
                         filled: true,
                         fillColor: AppColors.cream,
                         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                        border: OutlineInputBorder(borderRadius: AppRadii.large, borderSide: BorderSide.none),
+                        border: OutlineInputBorder(borderRadius: AppRadii.lg, borderSide: BorderSide.none),
                       ),
                       onSubmitted: (_) => _send(),
                     ),

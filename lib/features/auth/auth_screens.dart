@@ -58,15 +58,15 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   height: 88,
                   decoration: BoxDecoration(
                     color: AppColors.butter,
-                    borderRadius: AppRadii.large,
+                    borderRadius: AppRadii.lg,
                   ),
                   alignment: Alignment.center,
                   child: const Text('🐱', style: TextStyle(fontSize: 48)),
                 ),
                 const SizedBox(height: 16),
-                Text('Grey Nook', style: AppTypography.h1.copyWith(color: AppColors.brownDeep)),
+                Text('Grey Nook', style: AppTypography.displayLarge.copyWith(color: AppColors.butterDeep)),
                 const SizedBox(height: 4),
-                Text('你们的灰色小角落', style: AppTypography.body.copyWith(color: AppColors.textSecondary)),
+                Text('你们的灰色小角落', style: AppTypography.bodyMedium.copyWith(color: AppColors.textSecondary)),
                 const SizedBox(height: 32),
                 if (_registerMode)
                   Padding(
@@ -114,12 +114,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   child: FilledButton(
                     style: FilledButton.styleFrom(
                       backgroundColor: AppColors.butterDeep,
-                      shape: RoundedRectangleBorder(borderRadius: AppRadii.medium),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadii.md),
                     ),
                     onPressed: _busy ? null : _submit,
                     child: _busy
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                        : Text(_registerMode ? '注册' : '登录', style: AppTypography.h3.copyWith(color: Colors.white)),
+                        : Text(_registerMode ? '注册' : '登录', style: AppTypography.labelLarge.copyWith(color: Colors.white)),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -127,7 +127,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                   onPressed: () => setState(() => _registerMode = !_registerMode),
                   child: Text(
                     _registerMode ? '已有账号？去登录' : '第一次用？去注册',
-                    style: AppTypography.body.copyWith(color: AppColors.brown),
+                    style: AppTypography.bodyMedium.copyWith(color: AppColors.honey),
                   ),
                 ),
               ],

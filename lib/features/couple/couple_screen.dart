@@ -61,8 +61,8 @@ class _CoupleScreenState extends ConsumerState<CoupleScreen> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('配对你的 bb', style: TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
+        title: const Text('配对你的 bb', style: TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
       ),
       body: SafeArea(
         child: Padding(
@@ -74,7 +74,7 @@ class _CoupleScreenState extends ConsumerState<CoupleScreen> {
                 couple?.userB == null
                     ? '你们还没绑定。让一个人创建邀请码，另一个人输入。'
                     : '已绑定 🎉',
-                style: AppTypography.h3,
+                style: AppTypography.labelLarge,
               ),
               const SizedBox(height: 24),
               if (couple?.inviteCode != null && couple?.userB == null) ...[
@@ -82,16 +82,16 @@ class _CoupleScreenState extends ConsumerState<CoupleScreen> {
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: AppRadii.large,
+                    borderRadius: AppRadii.lg,
                     border: Border.all(color: AppColors.butter, width: 2),
                   ),
                   child: Column(
                     children: [
-                      const Text('你的邀请码', style: AppTypography.body),
+                      const Text('你的邀请码', style: AppTypography.bodyMedium),
                       const SizedBox(height: 8),
                       Text(
                         couple!.inviteCode!,
-                        style: AppTypography.h1.copyWith(letterSpacing: 4, color: AppColors.brownDeep),
+                        style: AppTypography.displayLarge.copyWith(letterSpacing: 4, color: AppColors.butterDeep),
                       ),
                       const SizedBox(height: 12),
                       OutlinedButton.icon(
@@ -101,8 +101,8 @@ class _CoupleScreenState extends ConsumerState<CoupleScreen> {
                             const SnackBar(content: Text('邀请码已复制，发给 TA 吧')),
                           );
                         },
-                        icon: const Icon(Icons.copy, color: AppColors.brown),
-                        label: const Text('复制', style: TextStyle(color: AppColors.brown)),
+                        icon: const Icon(Icons.copy, color: AppColors.honey),
+                        label: const Text('复制', style: TextStyle(color: AppColors.honey)),
                       ),
                     ],
                   ),
@@ -115,14 +115,14 @@ class _CoupleScreenState extends ConsumerState<CoupleScreen> {
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.butterDeep,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: AppRadii.medium),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadii.md),
                   ),
-                  child: Text(_busy ? '生成中...' : '我是先来的，创建邀请码', style: AppTypography.h3.copyWith(color: Colors.white)),
+                  child: Text(_busy ? '生成中...' : '我是先来的，创建邀请码', style: AppTypography.labelLarge.copyWith(color: Colors.white)),
                 ),
                 const SizedBox(height: 32),
                 const Divider(),
                 const SizedBox(height: 16),
-                Text('我有 TA 的邀请码', style: AppTypography.h3),
+                Text('我有 TA 的邀请码', style: AppTypography.labelLarge),
                 const SizedBox(height: 12),
                 TextField(
                   controller: _code,
@@ -139,11 +139,11 @@ class _CoupleScreenState extends ConsumerState<CoupleScreen> {
                 FilledButton(
                   onPressed: _busy ? null : _join,
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.brown,
+                    backgroundColor: AppColors.honey,
                     padding: const EdgeInsets.symmetric(vertical: 14),
-                    shape: RoundedRectangleBorder(borderRadius: AppRadii.medium),
+                    shape: RoundedRectangleBorder(borderRadius: AppRadii.md),
                   ),
-                  child: Text(_busy ? '加入中...' : '加入', style: AppTypography.h3.copyWith(color: Colors.white)),
+                  child: Text(_busy ? '加入中...' : '加入', style: AppTypography.labelLarge.copyWith(color: Colors.white)),
                 ),
               ],
               if (_error != null) ...[

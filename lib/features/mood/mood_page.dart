@@ -35,8 +35,8 @@ class _MoodPageState extends ConsumerState<MoodPage> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('今天心情', style: TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
+        title: const Text('今天心情', style: TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
       ),
       body: Column(
         children: [
@@ -50,7 +50,7 @@ class _MoodPageState extends ConsumerState<MoodPage> {
                 child: Container(
                   width: 56,
                   height: 56,
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: AppRadii.medium),
+                  decoration: BoxDecoration(color: Colors.white, borderRadius: AppRadii.md),
                   alignment: Alignment.center,
                   child: Text(e, style: const TextStyle(fontSize: 28)),
                 ),

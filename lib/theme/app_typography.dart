@@ -96,4 +96,12 @@ class AppTypography {
       bodySmall: caption,
     );
   }
+
+  // ---- Backward-compat aliases ----------------------------------------
+  // Older feature code referenced the previous typography names. Keep
+  // these so the build stays green while the rest of the app migrates.
+  static const TextStyle h1 = displayLarge;
+  static const TextStyle h2 = headlineMedium;
+  static const TextStyle h3 = labelLarge;
+  static const TextStyle body = bodyMedium;
 }

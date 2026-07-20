@@ -72,4 +72,11 @@ class AppColors {
   // ---- Misc ------------------------------------------------------------
   /// Scrim used for modal sheets and menus.
   static const Color scrim = Color(0x33000000);
+
+  // ---- Backward-compat aliases ----------------------------------------
+  // Older feature code referenced the previous palette names. Keep these
+  // so the build stays green while the rest of the app migrates.
+  static const Color brown = honey;
+  static const Color brownDeep = butterDeep;
+  static const Color brownLight = butter;
 }

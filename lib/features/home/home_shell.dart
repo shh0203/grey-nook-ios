@@ -43,7 +43,7 @@ class _HomeShellState extends ConsumerState<HomeShell> {
         destinations: const [
           NavigationDestination(icon: Icon(Icons.chat_bubble_outline), selectedIcon: Icon(Icons.chat_bubble), label: '聊天'),
           NavigationDestination(icon: Icon(Icons.favorite_border), selectedIcon: Icon(Icons.favorite), label: '纪念'),
-          NavigationDestination(icon: Icon(Icons.pets), selectedIcon: Icon(Icons.pets, color: AppColors.brownDeep), label: '小猫'),
+          NavigationDestination(icon: Icon(Icons.pets), selectedIcon: Icon(Icons.pets, color: AppColors.butterDeep), label: '小猫'),
           NavigationDestination(icon: Icon(Icons.mood_outlined), selectedIcon: Icon(Icons.mood), label: '心情'),
           NavigationDestination(icon: Icon(Icons.check_circle_outline), selectedIcon: Icon(Icons.check_circle), label: '任务'),
           NavigationDestination(icon: Icon(Icons.mail_outline), selectedIcon: Icon(Icons.mail), label: '情书'),

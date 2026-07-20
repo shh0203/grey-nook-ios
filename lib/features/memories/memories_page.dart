@@ -35,11 +35,11 @@ class _MemoriesPageState extends ConsumerState<MemoriesPage> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('我们的纪念', style: TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
+        title: const Text('我们的纪念', style: TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add, color: AppColors.brownDeep),
+            icon: const Icon(Icons.add, color: AppColors.butterDeep),
             onPressed: () => _showAdd(context),
           ),
         ],
@@ -67,10 +67,10 @@ class _MemoriesPageState extends ConsumerState<MemoriesPage> {
                 ...items.map((m) => Card(
                       elevation: 0,
                       color: Colors.white,
-                      shape: RoundedRectangleBorder(borderRadius: AppRadii.medium),
+                      shape: RoundedRectangleBorder(borderRadius: AppRadii.md),
                       child: ListTile(
                         leading: const Text('📌', style: TextStyle(fontSize: 22)),
-                        title: Text(m.title, style: AppTypography.h3),
+                        title: Text(m.title, style: AppTypography.labelLarge),
                         subtitle: Text(m.memoryDate + (m.note != null ? ' · ${m.note}' : '')),
                         trailing: IconButton(
                           icon: const Icon(Icons.delete_outline, size: 20),
@@ -103,7 +103,7 @@ class _MemoriesPageState extends ConsumerState<MemoriesPage> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text('添加纪念日', style: AppTypography.h2),
+              Text('添加纪念日', style: AppTypography.headlineMedium),
               const SizedBox(height: 12),
               TextField(controller: title, decoration: const InputDecoration(labelText: '标题', border: OutlineInputBorder(), filled: true, fillColor: Colors.white)),
               const SizedBox(height: 8),
@@ -129,7 +129,7 @@ class _MemoriesPageState extends ConsumerState<MemoriesPage> {
                   if (ctx.mounted) Navigator.pop(ctx);
                   setState(_reload);
                 },
-                child: Text('保存', style: AppTypography.h3.copyWith(color: Colors.white)),
+                child: Text('保存', style: AppTypography.labelLarge.copyWith(color: Colors.white)),
               ),
             ],
           ),
@@ -151,13 +151,13 @@ class _AnniversaryCard extends StatelessWidget {
     final daysToNext = next.isBefore(now) ? DateTime(now.year + 1, start.month, start.day).difference(now).inDays : next.difference(now).inDays;
     return Container(
       padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(color: AppColors.butter, borderRadius: AppRadii.large),
+      decoration: BoxDecoration(color: AppColors.butter, borderRadius: AppRadii.lg),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('在一起第 $days 天', style: AppTypography.h2.copyWith(color: AppColors.brownDeep)),
+          Text('在一起第 $days 天', style: AppTypography.headlineMedium.copyWith(color: AppColors.butterDeep)),
           const SizedBox(height: 4),
-          Text('距离下个纪念日还有 $daysToNext 天', style: AppTypography.body),
+          Text('距离下个纪念日还有 $daysToNext 天', style: AppTypography.bodyMedium),
         ],
       ),
     );

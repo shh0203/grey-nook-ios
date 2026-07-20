@@ -34,7 +34,7 @@ class _LettersPageState extends ConsumerState<LettersPage> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Text('写一封情书', style: AppTypography.h2),
+            Text('写一封情书', style: AppTypography.headlineMedium),
             const SizedBox(height: 8),
             TextField(
               controller: ctrl,
@@ -73,7 +73,7 @@ class _LettersPageState extends ConsumerState<LettersPage> {
                 if (ctx.mounted) Navigator.pop(ctx);
                 setState(() => _future = ref.read(lettersServiceProvider).list());
               },
-              child: Text('封存', style: AppTypography.h3.copyWith(color: Colors.white)),
+              child: Text('封存', style: AppTypography.labelLarge.copyWith(color: Colors.white)),
             ),
           ],
         ),
@@ -89,9 +89,9 @@ class _LettersPageState extends ConsumerState<LettersPage> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: const Text('情书', style: TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
-        actions: [IconButton(icon: const Icon(Icons.add, color: AppColors.brownDeep), onPressed: _write)],
+        title: const Text('情书', style: TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
+        actions: [IconButton(icon: const Icon(Icons.add, color: AppColors.butterDeep), onPressed: _write)],
       ),
       body: FutureBuilder<List<Letter>>(
         future: _future,
@@ -115,7 +115,7 @@ class _LettersPageState extends ConsumerState<LettersPage> {
               return Card(
                 color: Colors.white,
                 elevation: 0,
-                shape: RoundedRectangleBorder(borderRadius: AppRadii.medium),
+                shape: RoundedRectangleBorder(borderRadius: AppRadii.md),
                 child: ListTile(
                   leading: Text(locked ? '🔒' : (mine ? '💌' : '✉️'), style: const TextStyle(fontSize: 24)),
                   title: Text(mine ? '你写的' : 'TA 写的'),

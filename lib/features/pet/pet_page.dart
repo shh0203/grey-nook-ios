@@ -58,8 +58,8 @@ class _PetPageState extends ConsumerState<PetPage> {
       appBar: AppBar(
         backgroundColor: AppColors.cream,
         elevation: 0,
-        title: Text(_pet?.petName ?? 'Nook', style: const TextStyle(color: AppColors.brownDeep)),
-        iconTheme: const IconThemeData(color: AppColors.brownDeep),
+        title: Text(_pet?.petName ?? 'Nook', style: const TextStyle(color: AppColors.butterDeep)),
+        iconTheme: const IconThemeData(color: AppColors.butterDeep),
       ),
       body: _pet == null
           ? Center(
@@ -80,7 +80,7 @@ class _PetPageState extends ConsumerState<PetPage> {
                     child: const Text('🐱', style: TextStyle(fontSize: 110)),
                   ),
                   const SizedBox(height: 16),
-                  Text(_mood(_pet!.mood), style: AppTypography.h2.copyWith(color: AppColors.brownDeep)),
+                  Text(_mood(_pet!.mood), style: AppTypography.headlineMedium.copyWith(color: AppColors.butterDeep)),
                   const SizedBox(height: 32),
                   _Stat(label: '饱腹', value: _pet!.hunger, emoji: '🍚'),
                   const SizedBox(height: 12),
@@ -112,14 +112,14 @@ class _Stat extends StatelessWidget {
   final String emoji;
   @override
   Widget build(BuildContext context) {
-    final color = value > 60 ? AppColors.butterDeep : value > 30 ? AppColors.butter : AppColors.brown.withOpacity(0.4);
+    final color = value > 60 ? AppColors.butterDeep : value > 30 ? AppColors.butter : AppColors.honey.withOpacity(0.4);
     return Row(
       children: [
         SizedBox(width: 30, child: Text(emoji, style: const TextStyle(fontSize: 22))),
-        SizedBox(width: 60, child: Text(label, style: AppTypography.body)),
+        SizedBox(width: 60, child: Text(label, style: AppTypography.bodyMedium)),
         Expanded(
           child: ClipRRect(
-            borderRadius: AppRadii.small,
+            borderRadius: AppRadii.sm,
             child: LinearProgressIndicator(
               value: value / 100,
               minHeight: 12,
@@ -151,7 +151,7 @@ class _Action extends StatelessWidget {
             height: 70,
             decoration: BoxDecoration(
               color: AppColors.butter,
-              borderRadius: AppRadii.medium,
+              borderRadius: AppRadii.md,
               boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6, offset: const Offset(0, 2))],
             ),
             alignment: Alignment.center,
