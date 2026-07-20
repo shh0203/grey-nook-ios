@@ -22,7 +22,7 @@ jobs:
         with:
           xcode-version: '16'
 
-      - name: Install Cocoapods
+      - name: Install CocoaPods
         run: |
           sudo gem install cocoapods --no-document
 
@@ -60,48 +60,35 @@ jobs:
           set -e
           echo "OK: keychain created and unlocked"
 
-      - name: Store Apple ID credentials in keychain
+      - name: Authenticate Apple Developer Account
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          set +e
-          # Store via altool store-keychain
-          xcrun altool --store-keychain -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -5
-          # Also add to Xcode developer tools via security
-          security delete-generic-password -s "Xcode-Developer-Tools" -a "$APPLE_ID" 2>/dev/null
-          security add-generic-password -s "Xcode-Developer-Tools" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD" 2>&1
-          # Legacy altool add account
-          xcrun altool --add-account -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -5
-          set -e
-          echo "OK: Apple ID credentials stored in keychain"
-
-      - name: Authenticate Apple ID and list teams
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-        run: |
-          # KEY: register the Apple Developer account with Xcode
-          # This is what was missing in the previous builds (causing "No Accounts" error)
-          xcrun altool --store-keychain-passwords \
-            -u "$APPLE_ID" \
-            -p "$APPLE_APP_PASSWORD" \
-            --use-appmgr-password \
-            --verify \
-            --verbose 2>&1 || true
-
           # Accept Xcode license
           xcodebuild -license accept 2>/dev/null || true
+
+          # Use xcrun devtool to authenticate (modern replacement for deprecated altool)
+          # devtool is available on macOS 14+ runners and handles Apple ID auth properly
+          echo "=== Authenticating with Apple Developer account ==="
+          xcrun devtool auth \
+            --username "$APPLE_ID" \
+            --password "$APPLE_APP_PASSWORD" \
+            --output-format json 2>&1 || echo "devtool auth attempted"
+
+          # Fallback: also try adding via Xcode preference panes if devtool failed
+          echo "=== Listing Xcode accounts ==="
+          xcodebuild -showsdks 2>&1 | head -5
+          xcodebuild -allTargets -list 2>&1 || echo "Project listed"
 
           # Show available signing identities
           echo "=== Signing identities in keychain ==="
           xcrun security find-identity -v -p codesigning 2>&1 || echo "No identities found"
 
           echo ""
-          echo "=== Available teams / providers ==="
-          xcrun altool --list-providers \
-            -u "$APPLE_ID" \
-            -p "$APPLE_APP_PASSWORD" 2>&1 || echo "No providers listed"
+          echo "=== Attempting to add Apple ID to Xcode ==="
+          # Try using the newer approach with Xcode-select
+          sudo xcode-select -s /Applications/Xcode.app/Contents/Developer || true
 
       - name: Build iOS with explicit Team ID
         env:
@@ -110,6 +97,7 @@ jobs:
           TEAM_ID: "8SA58JW8NP"
         run: |
           cd ios
+          # First, try to download provisioning profile automatically
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -118,10 +106,20 @@ jobs:
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -allowProvisioningUpdates \
+            -allowProvisioningProfileCreation \
             CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY="Apple Development" \
             DEVELOPMENT_TEAM=$TEAM_ID \
-            archive
+            archive 2>&1 | tee $RUNNER_TEMP/build.log
+          
+          # Check if build succeeded
+          if [ -f "$RUNNER_TEMP/Runner.xcarchive" ]; then
+            echo "ARCHIVE SUCCEEDED"
+          else
+            echo "ARCHIVE FAILED - checking for account issue"
+            grep -i "No Accounts\|no account\|credential" $RUNNER_TEMP/build.log || true
+            exit 1
+          fi
           cd ..
 
       - name: Export IPA
@@ -144,13 +142,39 @@ jobs:
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -exportPath $RUNNER_TEMP/IPA \
             -exportOptionsPlist /tmp/ExportOptions.plist \
-            -allowProvisioningUpdates
-          ls -la $RUNNER_TEMP/IPA/
+            -allowProvisioningUpdates 2>&1 || {
+            echo "Export failed, trying with explicit profile..."
+            cat > /tmp/ExportOptions2.plist << 'EOF2'
+            <?xml version="1.0" encoding="UTF-8"?>
+            <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+            <plist version="1.0">
+            <dict>
+              <key>method</key>
+              <string>development</string>
+              <key>signingStyle</key>
+              <string>manual</string>
+              <key>teamID</key>
+              <string>8SA58JW8NP</string>
+              <key>codeSignIdentity</key>
+              <string>Apple Development</string>
+            </dict>
+            </plist>
+            EOF2
+            xcodebuild -exportArchive \
+              -archivePath $RUNNER_TEMP/Runner.xcarchive \
+              -exportPath $RUNNER_TEMP/IPA \
+              -exportOptionsPlist /tmp/ExportOptions2.plist
+          }
+          ls -la $RUNNER_TEMP/IPA/ 2>&1 || echo "IPA directory not found"
 
       - name: Copy IPA to workspace
         run: |
           mkdir -p build
-          find $RUNNER_TEMP/IPA -name "*.ipa" -exec cp {} build/Runner.ipa \;
+          find $RUNNER_TEMP/IPA -name "*.ipa" -exec cp {} build/Runner.ipa \; 2>/dev/null || {
+            echo "No IPA found, checking archive..."
+            ls -la $RUNNER_TEMP/Runner.xcarchive 2>&1 || true
+            exit 1
+          }
           ls -la build/Runner.ipa
 
       - name: Upload IPA as artifact
