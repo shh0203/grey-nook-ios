@@ -3,7 +3,6 @@ name: Build iOS
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 jobs:
   build:
@@ -53,7 +52,7 @@ jobs:
           fi
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
 
-      - name: Build iOS
+      - name: Build iOS (archive without signing)
         env:
           TEAM_ID: "8SA58JW8NP"
         run: |
@@ -65,10 +64,9 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
-            CODE_SIGN_STYLE=Manual \
-            CODE_SIGN_IDENTITY="Apple Development" \
-            DEVELOPMENT_TEAM=$TEAM_ID \
+            CODE_SIGN_IDENTITY="-" \
             CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
             archive 2>&1 | tee $RUNNER_TEMP/build_output.txt
           BUILD_CODE=${PIPESTATUS[0]}
           if [ $BUILD_CODE -eq 0 ]; then
@@ -85,6 +83,9 @@ jobs:
           TEAM_ID: "8SA58JW8NP"
         run: |
           mkdir -p $RUNNER_TEMP/IPA
+          PROFILE=$(find ~/Library/MobileDevice/Provisioning\ Profiles/ -name "*.mobileprovision" 2>/dev/null | head -1)
+          UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1 2>/dev/null || echo "")
+          echo "Using profile UUID: $UUID"
           cat > /tmp/ExportOptions.plist << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -93,7 +94,6 @@ jobs:
   <key>method</key><string>development</string>
   <key>signingStyle</key><string>manual</string>
   <key>teamID</key><string>8SA58JW8NP</string>
-  <key>signingCertificate</key><string>Apple Development</string>
 </dict>
 </plist>
 PLIST
