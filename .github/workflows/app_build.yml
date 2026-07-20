@@ -1,0 +1,41 @@
+name: App Build
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+        flutter-version: '3.44.6'
+        channel: stable
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+        xcode-version: '16'
+      - name: Setup
+        run: flutter pub get
+      - name: Pods
+        run: cd ios && pod install --repo-update
+      - name: Fastlane
+        run: sudo gem install fastlane --no-document
+      - name: Profile
+        env:
+        FASTLANE_USER: ${{ secrets.APPLE_ID }}
+        FASTLANE_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+        run: mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles && cd ios && fastlane sigh team_id:8SA58JW8NP app_identifier:app.greyNook.bb2026 output_path:$RUNNER_TEMP/prov skip_install:false 2>&1 | tee $RUNNER_TEMP/sigh.txt && PROF=$(find $RUNNER_TEMP/prov -name "*.mobileprovision" 2>/dev/null | head -1) && if [ -n "$PROF" ]; then cp "$PROF" ~/Library/MobileDevice/Provisioning\ Profiles/ && echo "Profile OK"; fi
+      - name: Build
+        env:
+        TEAM_ID: "8SA58JW8NP"
+        run: cd ios && xcodebuild -workspace Runner.xcworkspace -scheme Runner -configuration Release -sdk iphoneos -destination 'generic/platform=iOS' -archivePath $RUNNER_TEMP/app.xcarchive CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY="Apple Development" DEVELOPMENT_TEAM=$TEAM_ID CODE_SIGNING_REQUIRED=NO archive 2>&1 | tee $RUNNER_TEMP/build.txt && echo "DONE"
+      - name: Export
+        run: mkdir -p $RUNNER_TEMP/ipa && xcodebuild -exportArchive -archivePath $RUNNER_TEMP/app.xcarchive -exportPath $RUNNER_TEMP/ipa -exportOptionsPlist /tmp/export.plist 2>&1 | tee $RUNNER_TEMP/export.txt && IPA=$(find $RUNNER_TEMP/ipa -name "*.ipa" | head -1) && if [ -n "$IPA" ]; then echo "IPA: $IPA"; else echo "NO IPA"; exit 1; fi
+      - name: Upload
+        run: mkdir -p build && find $RUNNER_TEMP/ipa -name "*.ipa" | head -1 | xargs -I{} cp {} build/Runner.ipa
+      - uses: actions/upload-artifact@v4
+        with:
+        name: GreyNook-iOS
+        path: build/Runner.ipa
