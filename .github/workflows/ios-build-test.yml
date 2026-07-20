@@ -20,7 +20,9 @@ jobs:
           xcode-version: '16'
 
       - name: Flutter pub get
-        run: flutter pub get
+        run: |
+          flutter pub get
+          flutter build ios --debug --no-pub 2>&1 || echo "Flutter build exit code: $?" 
 
       - name: Install CocoaPods
         run: |
@@ -46,6 +48,14 @@ jobs:
       - name: Build iOS
         run: |
           cd ios
+          # Check Flutter framework
+          echo "=== Flutter directory ==="
+          ls -la Flutter/ 2>/dev/null || echo "Flutter dir not found"
+          echo "=== App.framework ==="
+          ls -la Flutter/App.framework/ 2>/dev/null || echo "App.framework not found"
+          echo "=== Flutter.framework ==="
+          ls -la Flutter/Flutter.framework/ 2>/dev/null || echo "Flutter.framework not found"
+          
           xcodebuild \
             -workspace Runner.xcworkspace \
             -scheme Runner \
@@ -65,7 +75,7 @@ jobs:
             echo "BUILD OK"
             ls -la $RUNNER_TEMP/app.xcarchive
           else
-            grep -E "error:" $RUNNER_TEMP/build.txt | grep -v "warning:" | head -10
+            grep -E "error:" $RUNNER_TEMP/build.txt | grep -v "warning:" | head -20
             exit $CODE
           fi
 
