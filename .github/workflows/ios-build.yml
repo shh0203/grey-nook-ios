@@ -3,9 +3,10 @@ name: Build iOS
 on:
   push:
     branches: [ main ]
+  workflow_dispatch:
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
     steps:
