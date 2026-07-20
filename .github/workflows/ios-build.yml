@@ -43,24 +43,32 @@ jobs:
           pod install
           cd ..
 
-      - name: Prepare default keychain (no custom keychain)
+      - name: Create temporary keychain
+        run: |
+          KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
+          KEYCHAIN_PASSWORD="build123"
+          security delete-keychain $KEYCHAIN_PATH 2>/dev/null || true
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          EXISTING=$(security list-keychains -d user | tr -d '"' | head -1)
+          security list-keychains -d user -s $KEYCHAIN_PATH $EXISTING
+          security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          echo "OK: keychain created and unlocked"
+
+      - name: Store Apple ID credentials in keychain
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          # Unlock default keychain
-          security unlock-keychain -p "" ~/Library/Keychains/login.keychain-db 2>&1 || true
-          # Store Apple ID credentials in default keychain
           security delete-generic-password -s "$APPLE_ID" -a "$APPLE_ID" 2>/dev/null || true
-          security add-generic-password -s "$APPLE_ID" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD" -U
-          # Make sure keychain isn't locked
-          security set-keychain-settings -lut 21600 ~/Library/Keychains/login.keychain-db 2>&1 || true
-          echo "OK: Apple ID credentials in keychain"
+          security add-generic-password -s "$APPLE_ID" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD"
 
-      - name: Build iOS with automatic signing
+      - name: Build iOS with explicit Team ID
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
+          TEAM_ID: "8SA58JW8NP"
         run: |
           cd ios
           xcodebuild \
@@ -73,8 +81,7 @@ jobs:
             -allowProvisioningUpdates \
             CODE_SIGN_STYLE=Automatic \
             CODE_SIGN_IDENTITY="Apple Development" \
-            CODE_SIGNING_REQUIRED=YES \
-            CODE_SIGNING_ALLOWED=YES \
+            DEVELOPMENT_TEAM=$TEAM_ID \
             archive
           cd ..
 
@@ -89,6 +96,8 @@ jobs:
               <string>development</string>
               <key>signingStyle</key>
               <string>automatic</string>
+              <key>teamID</key>
+              <string>8SA58JW8NP</string>
           </dict>
           </plist>
           EOF
