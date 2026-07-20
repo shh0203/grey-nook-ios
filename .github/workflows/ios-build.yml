@@ -22,17 +22,17 @@ jobs:
         with:
           xcode-version: '16'
 
-      - name: Install fastlane and CocoaPods
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods
         run: |
-          # Install fastlane
-          sudo gem install fastlane --no-document
+          cd ios && pod install --repo-update
 
-          # Install CocoaPods dependencies
-          cd ios
-          pod install --repo-update
-          cd ..
+      - name: Install fastlane
+        run: sudo gem install fastlane --no-document
 
-      - name: Fetch provisioning profile via fastlane sigh
+      - name: Download provisioning profile via fastlane sigh
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
@@ -41,9 +41,10 @@ jobs:
         run: |
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
 
-          # Run fastlane sigh to download/create provisioning profile
-          # sigh logs into App Store Connect with Apple ID credentials and fetches the profile
           cd ios
+
+          # fastlane sigh authenticates with App Store Connect using Apple ID + App Password
+          # and downloads (or creates) the provisioning profile for the app
           fastlane sigh \
             username:"$APPLE_ID" \
             password:"$APPLE_APP_PASSWORD" \
@@ -53,19 +54,18 @@ jobs:
             skip_install:false \
             readonly:false 2>&1 | tee $RUNNER_TEMP/sigh_output.txt
 
-          # Copy downloaded profile to Xcode's profile directory
           PROFILE=$(find $RUNNER_TEMP/provisioning_profiles -name "*.mobileprovision" 2>/dev/null | head -1)
           if [ -n "$PROFILE" ] && [ -f "$PROFILE" ]; then
-            UUID=$(grep -A1 "UUID" "$PROFILE" | grep -o '[A-F0-9-]\{36\}' | head -1)
+            UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1)
             cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
-            echo "SUCCESS: Profile installed as ${UUID}.mobileprovision"
+            echo "SUCCESS: Profile installed: ${UUID}.mobileprovision"
+            echo "Installed profiles:"
             ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
           else
-            echo "WARNING: sigh did not produce a .mobileprovision file"
-            echo "sigh output:"
-            tail -20 $RUNNER_TEMP/sigh_output.txt
+            echo "WARNING: No .mobileprovision file found"
+            echo "sigh output (last 30 lines):"
+            tail -30 $RUNNER_TEMP/sigh_output.txt
           fi
-          cd ..
 
       - name: Build iOS
         env:
@@ -85,13 +85,13 @@ jobs:
             -allowProvisioningUpdates \
             archive 2>&1 | tee $RUNNER_TEMP/build_output.txt
 
-          if [ ${PIPESTATUS[0]} -eq 0 ]; then
-            echo "BUILD SUCCESS"
+          BUILD_CODE=${PIPESTATUS[0]}
+          if [ $BUILD_CODE -eq 0 ]; then
+            echo "BUILD SUCCEEDED"
           else
-            echo "BUILD FAILED - errors:"
-            grep -E "error:" $RUNNER_TEMP/build_output.txt | grep -v "warning:" | head -15
+            echo "BUILD FAILED (exit $BUILD_CODE)"
+            grep -E "error:" $RUNNER_TEMP/build_output.txt | grep -v "warning:" | head -20
           fi
-          cd ..
 
       - name: Export IPA
         run: |
@@ -113,20 +113,26 @@ jobs:
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
             -exportPath $RUNNER_TEMP/IPA \
             -exportOptionsPlist /tmp/ExportOptions.plist \
-            -allowProvisioningUpdates
+            -allowProvisioningUpdates 2>&1 | tee $RUNNER_TEMP/export_output.txt
 
           ls -la $RUNNER_TEMP/IPA/
 
-      - name: Upload IPA as artifact
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
+          if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
+            echo "IPA created: $IPA_FILE"
+          else
+            echo "ERROR: No IPA found"
+            tail -10 $RUNNER_TEMP/export_output.txt
+          fi
+
+      - name: Upload IPA
         run: |
           mkdir -p build
           IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
           if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
             cp "$IPA_FILE" build/Runner.ipa
-            echo "IPA ready: build/Runner.ipa"
           else
-            echo "ERROR: No IPA found"
-            ls -la $RUNNER_TEMP/IPA/
+            echo "ERROR: IPA not found"
             exit 1
           fi
 
