@@ -2,12 +2,6 @@ name: Build iOS
 
 on:
   workflow_dispatch:
-    inputs:
-      skip_codesign:
-        description: 'Skip code signing'
-        required: false
-        default: 'true'
-        type: boolean
 
 jobs:
   build:
@@ -15,13 +9,12 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Flutter
-        uses: async-react/flutter-action@v2
+      - uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.44.6'
+          channel: stable
 
       - name: Disable Swift Package Manager
         run: flutter config --no-enable-swift-package-manager
@@ -32,8 +25,7 @@ jobs:
       - name: Get Flutter dependencies
         run: flutter pub get
 
-      - name: Setup Xcode
-        uses: maxim-lobanov/setup-xcode@v1
+      - uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: '16.2'
 
@@ -45,20 +37,16 @@ jobs:
           cd ios
           flutter build ios --debug --no-codesign 2>&1
         env:
-          FLUTTER_ROOT: ${{ env.FLUTTER_ROOT }}
-          PUB_CACHE: /Users/runner/.pub-cache
-          MD_APPLE_SDK_ROOT: /Applications/Xcode_16.2.app
-          CODE_SIGN_IDENTITY: ''
           CODE_SIGNING_REQUIRED: 'NO'
           CODE_SIGNING_ALLOWED: 'NO'
 
       - name: Verify build output
         run: |
           if [ -d ios/build/ios/iphonesimulator/Runner.app ]; then
-            echo "SUCCESS: Runner.app built"
+            echo "SUCCESS: Runner.app built for simulator"
           elif [ -d ios/build/ios/iphoneos ]; then
             echo "SUCCESS: iPhoneOS build found"
           else
-            ls -la ios/build/ 2>/dev/null || echo "No build directory"
+            ls -la ios/build/ 2>/dev/null || echo "No build directory found"
             exit 1
           fi
