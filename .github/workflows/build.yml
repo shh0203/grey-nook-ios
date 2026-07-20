@@ -57,8 +57,8 @@ jobs:
             -sdk iphoneos \
             -destination 'generic/platform=iOS' \
             -archivePath $RUNNER_TEMP/Runner.xcarchive \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_IDENTITY="" \
+            DEVELOPMENT_TEAM=8SA58JW8NP \
             archive 2>&1 | tee $RUNNER_TEMP/build_output.txt
           BUILD_CODE=${PIPESTATUS[0]}
           if [ $BUILD_CODE -eq 0 ]; then
