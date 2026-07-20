@@ -19,9 +19,6 @@ jobs:
       - name: Disable Swift Package Manager
         run: flutter config --no-enable-swift-package-manager
 
-      - name: Disable analytics
-        run: flutter config --no-analytics
-
       - name: Get Flutter dependencies
         run: flutter pub get
 
@@ -32,21 +29,16 @@ jobs:
       - name: Install CocoaPods
         run: cd ios && pod install --repo-update
 
-      - name: Build iOS
+      - name: Build iOS Simulator
         run: |
           cd ios
-          flutter build ios --debug --no-codesign 2>&1
-        env:
-          CODE_SIGNING_REQUIRED: 'NO'
-          CODE_SIGNING_ALLOWED: 'NO'
+          flutter build ios --simulator --debug 2>&1
 
       - name: Verify build output
         run: |
           if [ -d ios/build/ios/iphonesimulator/Runner.app ]; then
             echo "SUCCESS: Runner.app built for simulator"
-          elif [ -d ios/build/ios/iphoneos ]; then
-            echo "SUCCESS: iPhoneOS build found"
           else
-            ls -la ios/build/ 2>/dev/null || echo "No build directory found"
+            ls -la ios/build/ 2>/dev/null || echo "No build directory"
             exit 1
           fi
