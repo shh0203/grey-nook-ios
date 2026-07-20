@@ -47,13 +47,15 @@ jobs:
         run: |
           KEYCHAIN_PATH=$RUNNER_TEMP/build.keychain-db
           KEYCHAIN_PASSWORD="build123"
-          security delete-keychain $KEYCHAIN_PATH 2>/dev/null || true
+          set +e
+          security delete-keychain $KEYCHAIN_PATH 2>/dev/null
           security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
           EXISTING=$(security list-keychains -d user | tr -d '"' | head -1)
           security list-keychains -d user -s $KEYCHAIN_PATH $EXISTING
           security set-key-partition-list -S apple-tool:,apple:,codesign:,productbuild: -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          set -e
           echo "OK: keychain created and unlocked"
 
       - name: Store Apple ID credentials in keychain
