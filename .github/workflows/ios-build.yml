@@ -4,10 +4,6 @@ on:
   push:
     branches: [ main ]
   workflow_dispatch:
-    inputs:
-      dummy:
-        description: 'Trigger build'
-        required: false
 
 jobs:
   build:
@@ -93,7 +89,6 @@ jobs:
           TEAM_ID: "8SA58JW8NP"
         run: |
           mkdir -p $RUNNER_TEMP/IPA
-          rm -rf $RUNNER_TEMP/IPA/*
 
           cat > /tmp/ExportOptions.plist << 'PLIST'
 <?xml version="1.0" encoding="UTF-8"?>
@@ -114,11 +109,9 @@ PLIST
             -exportOptionsPlist /tmp/ExportOptions.plist \
             -allowProvisioningUpdates 2>&1 | tee $RUNNER_TEMP/export_output.txt
 
-          echo "=== Contents of $RUNNER_TEMP/IPA ==="
-          find $RUNNER_TEMP/IPA -type f
-          ls -laR $RUNNER_TEMP/IPA/
+          ls -la $RUNNER_TEMP/IPA/
 
-          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" 2>/dev/null | head -1)
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
           if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
             echo "IPA created: $IPA_FILE"
           else
@@ -129,18 +122,12 @@ PLIST
 
       - name: Upload IPA
         run: |
-          echo "=== Searching for IPA in $RUNNER_TEMP/IPA ==="
-          find $RUNNER_TEMP/IPA -type f -name "*.ipa" 2>/dev/null
-          ls -laR $RUNNER_TEMP/IPA/ 2>/dev/null || echo "IPA dir not found"
-
-          IPA_FILE=$(find $RUNNER_TEMP/IPA -type f -name "*.ipa" 2>/dev/null | head -1)
+          mkdir -p build
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
           if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
-            echo "Copying IPA: $IPA_FILE"
-            mkdir -p build
             cp "$IPA_FILE" build/Runner.ipa
-            ls -la build/Runner.ipa
           else
-            echo "ERROR: IPA not found in $RUNNER_TEMP/IPA"
+            echo "ERROR: IPA not found"
             exit 1
           fi
 
@@ -149,3 +136,4 @@ PLIST
           name: GreyNook-iOS
           path: build/Runner.ipa
           if-no-files-found: error
+
