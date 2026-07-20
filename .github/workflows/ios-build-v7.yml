@@ -1,0 +1,114 @@
+name: Build iOS
+
+on: workflow_dispatch
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.44.6'
+          channel: stable
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: '16'
+
+      - name: Flutter pub get
+        run: flutter pub get
+
+      - name: Install CocoaPods
+        run: |
+          cd ios && pod install --repo-update
+
+      - name: Build iOS (Simulator Mode - for IPA)
+        run: |
+          cd ios
+          # Build for simulator first to validate the project
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'platform=iOS Simulator,name=iPhone 16' \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            build 2>&1 | tee $RUNNER_TEMP/build.txt
+          CODE=${PIPESTATUS[0]}
+          echo "Build exit: $CODE"
+          grep -E "error:|BUILD SUCCEEDED|BUILD FAILED" $RUNNER_TEMP/build.txt | grep -v "warning:" | tail -20
+
+      - name: Build Release Archive for IPA
+        run: |
+          cd ios
+          # Build the actual release archive
+          # Use automatic signing disabled and code signing disallowed
+          xcodebuild \
+            -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGN_STYLE=Manual \
+            DEVELOPMENT_TEAM=8SA58JW8NP \
+            archive 2>&1 | tee $RUNNER_TEMP/archive.txt
+          CODE=${PIPESTATUS[0]}
+          echo "Archive exit: $CODE"
+          if [ $CODE -eq 0 ]; then
+            echo "ARCHIVE SUCCEEDED"
+            ls -la $RUNNER_TEMP/Runner.xcarchive/
+          else
+            echo "ARCHIVE FAILED"
+            grep -E "error:" $RUNNER_TEMP/archive.txt | grep -v "warning:" | head -20
+            exit 1
+          fi
+
+      - name: Export IPA
+        run: |
+          mkdir -p $RUNNER_TEMP/IPA
+          # Create export options
+          cat > /tmp/export.plist << 'PLISTEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>method</key><string>development</string>
+  <key>signingStyle</key><string>manual</string>
+  <key>teamID</key><string>8SA58JW8NP</string>
+  <key>signingCertificate</key><string>Apple Development</string>
+  <key>allowProvisioningUpdates</key><true/>
+</dict>
+</plist>
+PLISTEOF
+          xcodebuild -exportArchive \
+            -archivePath $RUNNER_TEMP/Runner.xcarchive \
+            -exportPath $RUNNER_TEMP/IPA \
+            -exportOptionsPlist /tmp/export.plist 2>&1 | tee $RUNNER_TEMP/export.txt
+          CODE=${PIPESTATUS[0]}
+          echo "Export exit: $CODE"
+          IPA=$(find $RUNNER_TEMP/IPA -name "*.ipa" 2>/dev/null | head -1)
+          if [ -n "$IPA" ] && [ -f "$IPA" ]; then
+            echo "IPA created: $IPA"
+            mkdir -p build
+            cp "$IPA" build/Runner.ipa
+            ls -la build/Runner.ipa
+          else
+            echo "NO IPA found"
+            tail -20 $RUNNER_TEMP/export.txt
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GreyNook-iOS
+          path: build/Runner.ipa
+          if-no-files-found: error
