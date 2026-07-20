@@ -63,8 +63,18 @@ jobs:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          security delete-generic-password -s "$APPLE_ID" -a "$APPLE_ID" 2>/dev/null || true
-          security add-generic-password -s "$APPLE_ID" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD"
+          set +e
+          # Method 1: altool store-keychain (deprecated but works on older Xcode)
+          xcrun altool --store-keychain -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -5
+          # Method 2: add as Xcode developer account
+          security delete-generic-password -s "Xcode-Developer-Tools" -a "$APPLE_ID" 2>/dev/null
+          security add-generic-password -s "Xcode-Developer-Tools" -a "$APPLE_ID" -w "$APPLE_APP_PASSWORD" 2>&1
+          # Method 3: legacy altool add
+          xcrun altool --add-account -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -5
+          set -e
+          # List accounts we have
+          xcrun altool --list-providers -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | head -10
+          echo "OK: Apple ID credentials configured"
 
       - name: Build iOS with explicit Team ID
         env:
