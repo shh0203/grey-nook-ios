@@ -1,4 +1,5 @@
 name: Build iOS
+# Trigger rebuild
 on:
   push:
     branches: [main]
@@ -44,6 +45,7 @@ jobs:
           fi
           ls -la ~/Library/MobileDevice/Provisioning\ Profiles/
       - name: Build iOS
+# Trigger rebuild
         env:
           TEAM_ID: "8SA58JW8NP"
         run: |
