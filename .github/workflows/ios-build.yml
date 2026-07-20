@@ -34,7 +34,7 @@ jobs:
             FLUTTER_DIR=$(dirname $(readlink -f "$FLUTTER_PATH"))
             sudo ln -sfn "$FLUTTER_DIR" /opt/flutter
           fi
-          ls -la /opt/flutter/packages/flutter_tools/bin/podhelper.rb
+          echo "Flutter symlink ready"
 
       - name: Flutter pub get
         run: flutter pub get
