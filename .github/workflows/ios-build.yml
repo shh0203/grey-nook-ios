@@ -3,7 +3,8 @@ name: Build iOS
 on:
   push:
     branches: [ main ]
-jobs:
+  workflow_dispatch: {}
+
 jobs:
   build:
     runs-on: macos-14
@@ -44,7 +45,7 @@ jobs:
 
           PROFILE=$(find $RUNNER_TEMP/provisioning_profiles -name "*.mobileprovision" 2>/dev/null | head -1)
           if [ -n "$PROFILE" ] && [ -f "$PROFILE" ]; then
-            UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1)
+            UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1)
             cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
             echo "SUCCESS: Profile installed: ${UUID}.mobileprovision"
           else
@@ -135,4 +136,3 @@ PLIST
           name: GreyNook-iOS
           path: build/Runner.ipa
           if-no-files-found: error
-
