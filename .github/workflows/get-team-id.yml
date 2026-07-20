@@ -6,19 +6,15 @@ jobs:
   query:
     runs-on: macos-15
     steps:
-      - name: Query Apple for team info
+      - name: Query Apple for Team ID
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
         run: |
-          echo "=== Querying Apple for your team info ==="
-          echo ""
-          echo "App-Specific Password starts with: ${APPLE_APP_PASSWORD:0:4}****"
-          echo "Apple ID: $APPLE_ID"
-          echo ""
-          echo "--- altool --list-providers ---"
+          echo "=== Querying Apple for Team ID ==="
           xcrun altool --list-providers -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>&1 | tee /tmp/team.txt
           echo ""
-          echo "--- end of output ---"
-          echo ""
-          echo "If you see a Provider ID (10 chars like ABCDE12345), that's your Team ID."
+          echo "=== Looking for Team ID ==="
+          TEAM_ID=$(xcrun altool --list-providers -u "$APPLE_ID" -p "$APPLE_APP_PASSWORD" 2>/dev/null | grep -E "Provider ID|Team ID" | head -1 | awk '{print $NF}')
+          echo "TEAM_ID=$TEAM_ID" >> $GITHUB_ENV
+          echo "Found Team ID: $TEAM_ID"
