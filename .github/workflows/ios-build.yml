@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 60
 
     steps:
@@ -33,19 +33,14 @@ jobs:
         run: |
         mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
         cd ios
-        fastlane sigh team_id:$TEAM_ID app_identifier:$BUNDLE_ID output_path:$RUNNER_TEMP/provisioning skip_install:false 2>&1 | tee $RUNNER_TEMP/sigh.txt
-        PROFILE=$(find $RUNNER_TEMP/provisioning -name "*.mobileprovision" 2>/dev/null | head -1)
-        if [ -n "$PROFILE" ]; then
-          UUID=$(grep -ao '[A-F0-9]{8}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{4}-[A-F0-9]{12}' "$PROFILE" | head -1)
-          cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
-          echo "Profile installed: $UUID"
-        fi
+        fastlane sigh team_id:$TEAM_ID app_identifier:$BUNDLE_ID output_path:$RUNNER_TEMP/prov skip_install:false 2>&1 | tee $RUNNER_TEMP/sigh.txt
+        PROF=$(find $RUNNER_TEMP/prov -name "*.mobileprovision" 2>/dev/null | head -1)
+        if [ -n "$PROF" ]; then cp "$PROF" ~/Library/MobileDevice/Provisioning\ Profiles/; echo "Profile installed"; fi
       - name: Build iOS
         env:
         TEAM_ID: "8SA58JW8NP"
         run: |
-        cd ios
-        xcodebuild \
+        cd ios && xcodebuild \
           -workspace Runner.xcworkspace \
           -scheme Runner \
           -configuration Release \
@@ -56,34 +51,18 @@ jobs:
           CODE_SIGN_IDENTITY="Apple Development" \
           DEVELOPMENT_TEAM=$TEAM_ID \
           CODE_SIGNING_REQUIRED=NO \
-        archive 2>&1 | tee $RUNNER_TEMP/build.txt
-        BUILD_CODE=${PIPESTATUS[0]}
-        if [ $BUILD_CODE -eq 0 ]; then
-          echo "BUILD SUCCEEDED"
-        else
-          echo "BUILD FAILED"
-          exit $BUILD_CODE
-        fi
+          archive 2>&1 | tee $RUNNER_TEMP/build.txt
+        CODE=${PIPESTATUS[0]}
+        if [ $CODE -eq 0 ]; then echo "BUILD OK"; else echo "BUILD FAILED"; exit $CODE; fi
       - name: Export IPA
         run: |
         mkdir -p $RUNNER_TEMP/ipa
-        cat > /tmp/export.plist << PLIST
-        <?xml version="1.0" encoding="UTF-8"?>
-        <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-        <plist version="1.0">
-        <dict>
-        <key>method</key><string>development</string>
-        <key>signingStyle</key><string>manual</string>
-        <key>teamID</key><string>8SA58JW8NP</string>
-        </dict>
-        </plist>
-        PLIST
         xcodebuild -exportArchive \
           -archivePath $RUNNER_TEMP/app.xcarchive \
           -exportPath $RUNNER_TEMP/ipa \
           -exportOptionsPlist /tmp/export.plist 2>&1 | tee $RUNNER_TEMP/export.txt
         IPA=$(find $RUNNER_TEMP/ipa -name "*.ipa" | head -1)
-        if [ -n "$IPA" ]; then echo "IPA created"; else echo "NO IPA"; exit 1; fi
+        if [ -n "$IPA" ]; then echo "IPA: $IPA"; else echo "NO IPA"; exit 1; fi
       - name: Upload
         run: mkdir -p build && find $RUNNER_TEMP/ipa -name "*.ipa" | head -1 | xargs -I{} cp {} build/Runner.ipa
       - uses: actions/upload-artifact@v4
