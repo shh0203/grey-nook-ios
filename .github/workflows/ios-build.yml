@@ -3,8 +3,7 @@ name: Build iOS
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: {}
-
+jobs:
 jobs:
   build:
     runs-on: macos-14
@@ -45,7 +44,7 @@ jobs:
 
           PROFILE=$(find $RUNNER_TEMP/provisioning_profiles -name "*.mobileprovision" 2>/dev/null | head -1)
           if [ -n "$PROFILE" ] && [ -f "$PROFILE" ]; then
-            UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1)
+            UUID=$(grep -ao '[A-F0-9]\{8\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{4\}-[A-F0-9]\{12\}' "$PROFILE" | head -1)
             cp "$PROFILE" ~/Library/MobileDevice/Provisioning\ Profiles/${UUID}.mobileprovision
             echo "SUCCESS: Profile installed: ${UUID}.mobileprovision"
           else
@@ -122,12 +121,19 @@ PLIST
 
       - name: Upload IPA
         run: |
-          mkdir -p build
-          IPA_FILE=$(find $RUNNER_TEMP/IPA -name "*.ipa" | head -1)
+          echo "=== Searching for IPA in $RUNNER_TEMP/IPA ==="
+          find $RUNNER_TEMP/IPA -type f 2>/dev/null
+          ls -laR $RUNNER_TEMP/IPA/ 2>/dev/null || echo "IPA dir not accessible"
+          IPA_FILE=$(find $RUNNER_TEMP/IPA -type f -name "*.ipa" 2>/dev/null | head -1)
           if [ -n "$IPA_FILE" ] && [ -f "$IPA_FILE" ]; then
+            echo "Copying IPA: $IPA_FILE"
+            mkdir -p build
             cp "$IPA_FILE" build/Runner.ipa
+            ls -la build/Runner.ipa
           else
-            echo "ERROR: IPA not found"
+            echo "ERROR: IPA not found in $RUNNER_TEMP/IPA"
+            echo "Listing all files in RUNNER_TEMP:"
+            find $RUNNER_TEMP -type f 2>/dev/null | head -20
             exit 1
           fi
 
@@ -136,3 +142,4 @@ PLIST
           name: GreyNook-iOS
           path: build/Runner.ipa
           if-no-files-found: error
+
